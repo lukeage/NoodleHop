@@ -168,7 +168,7 @@
         <div id="game">
             <div id="player"></div>
             <div id="score">0</div>
-            <div id="title">Doodle Jump</div>
+            <div id="title">Noodle Hop</div>
         </div>
         <div id="game-over">
             <h2>Game Over!</h2>
@@ -198,7 +198,6 @@
         let jumping = false;
         let gameOver = false;
         
-        // Platform types
         const PLATFORM_TYPES = {
             NORMAL: 'normal',
             BREAKABLE: 'breakable',
@@ -206,7 +205,6 @@
             VERTICAL: 'vertical'
         };
         
-        // Create clouds for background
         function createClouds() {
             for (let i = 0; i < 5; i++) {
                 createCloud();
@@ -237,9 +235,7 @@
             });
         }
         
-        // Create initial platforms
         function createPlatforms() {
-            // Start with a normal platform under the player
             platforms.push({
                 x: 150,
                 y: 400,
@@ -249,28 +245,20 @@
                 speed: 0
             });
             
-            // Create more platforms with guaranteed path upward
             for (let i = 0; i < 10; i++) {
-                // For the first few platforms, ensure they're spaced for easy jumping
-                // Start closer to center, then spread out more
                 let x;
                 if (i < 3) {
-                    // First few platforms near center but with slight randomness
                     x = gameWidth/2 - 40 + (Math.random() * 80 - 40);
                 } else {
-                    // Gradually increase randomness as we go higher
-                    const spreadFactor = Math.min(1, i / 5); // Gradually increase from 0 to 1
+                    const spreadFactor = Math.min(1, i / 5);
                     x = gameWidth/2 - 40 + (Math.random() * gameWidth * spreadFactor - (gameWidth * spreadFactor / 2));
                 }
                 
-                // Constrain to game boundaries
                 x = Math.max(0, Math.min(gameWidth - 80, x));
                 let y = i * 60;
                 
-                // First 5 platforms are always normal for easier start
                 let type = (i < 5) ? PLATFORM_TYPES.NORMAL : PLATFORM_TYPES.NORMAL;
                 
-                // After first 5, introduce some variety based on randomness
                 if (i >= 5) {
                     let platformChance = Math.random();
                     if (platformChance < 0.2) {
@@ -278,10 +266,8 @@
                     } else if (platformChance < 0.3) {
                         type = PLATFORM_TYPES.VERTICAL;
                     }
-                    // No breakable platforms in initial setup
                 }
                 
-                // For moving platforms, set speed and direction
                 let speed = 0;
                 let direction = 1;
                 
@@ -300,7 +286,7 @@
                     element: createPlatformElement(x, y, type),
                     direction: direction,
                     speed: speed,
-                    startY: y // For vertical platforms
+                    startY: y
                 });
             }
         }
@@ -309,7 +295,6 @@
             const platform = document.createElement('div');
             platform.className = 'platform';
             
-            // Add specific class based on platform type
             switch (type) {
                 case PLATFORM_TYPES.NORMAL:
                     platform.classList.add('platform-normal');
@@ -331,20 +316,16 @@
             return platform;
         }
         
-        // Handle mouse movement
         game.addEventListener('mousemove', (e) => {
             if (!gameOver) {
-                // Calculate mouse position relative to game container
                 const rect = game.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 
-                // Set player position, keeping within boundaries
                 playerX = Math.max(0, Math.min(gameWidth - 60, mouseX - 30));
                 player.style.left = playerX + 'px';
             }
         });
         
-        // Move clouds
         function updateClouds() {
             for (let i = 0; i < clouds.length; i++) {
                 clouds[i].y += clouds[i].speed;
@@ -358,16 +339,13 @@
             }
         }
         
-        // Update platform positions for moving platforms
         function updatePlatforms() {
             for (let i = 0; i < platforms.length; i++) {
                 const platform = platforms[i];
                 
-                // Update horizontal platforms
                 if (platform.type === PLATFORM_TYPES.HORIZONTAL) {
                     platform.x += platform.speed * platform.direction;
                     
-                    // Change direction if platform hits the edge
                     if (platform.x <= 0 || platform.x >= gameWidth - 80) {
                         platform.direction *= -1;
                     }
@@ -375,12 +353,9 @@
                     platform.element.style.left = platform.x + 'px';
                 }
                 
-                // Update vertical platforms
                 if (platform.type === PLATFORM_TYPES.VERTICAL) {
-                    // Move up and down within a range of 50px
                     platform.y += platform.speed * platform.direction;
                     
-                    // Change direction at the extremes
                     if (platform.y >= platform.startY + 50 || platform.y <= platform.startY - 50) {
                         platform.direction *= -1;
                     }
@@ -390,76 +365,61 @@
             }
         }
         
-        // Create a new platform
         function createNewPlatform() {
             let x = 0;
             let y = -20;
             
-            // Define jump capabilities
             const maxHorizontalJump = 150;
-            const maxJumpHeight = 200; // Maximum height player can jump
-            const minVerticalGap = 50;  // Minimum gap between platforms vertically
-            const maxVerticalGap = 120; // Maximum vertical gap that's still reachable
-            const minOffset = 30; // Minimum horizontal distance
-            const maxOffset = Math.min(maxHorizontalJump, 140); // Maximum horizontal distance
+            const maxJumpHeight = 200;
+            const minVerticalGap = 50;
+            const maxVerticalGap = 120;
+            const minOffset = 30;
+            const maxOffset = Math.min(maxHorizontalJump, 140);
             
-            // Find the highest platform currently in game
             const highestPlatform = platforms.reduce((highest, current) => 
                 (current.y < highest.y) ? current : highest, {y: Infinity});
             
             if (highestPlatform && highestPlatform.y !== Infinity) {
-                // Ensure vertical distance is reasonable
                 y = Math.max(-20, highestPlatform.y - (minVerticalGap + Math.random() * (maxVerticalGap - minVerticalGap)));
                 
-                // 80% chance to place within jump range of highest platform
                 if (Math.random() < 0.8) {
                     const horizontalOffset = (Math.random() < 0.5) ? 
-                        -minOffset - Math.random() * (maxOffset - minOffset) :  // Left
-                         minOffset + Math.random() * (maxOffset - minOffset);   // Right
+                        -minOffset - Math.random() * (maxOffset - minOffset) :
+                         minOffset + Math.random() * (maxOffset - minOffset);
                     
                     x = Math.max(0, Math.min(gameWidth - 80, highestPlatform.x + horizontalOffset));
                 } else {
-                    // For the other 20%, still ensure platform is reachable from somewhere
                     x = Math.random() * (gameWidth - 80);
                     
-                    // Check if the new platform is reachable from any top platforms
                     const topPlatforms = platforms.filter(p => 
                         p.y < y + maxJumpHeight && 
                         p.y > y && 
-                        p.type !== PLATFORM_TYPES.BREAKABLE // FIXED: Exclude breakable platforms
+                        p.type !== PLATFORM_TYPES.BREAKABLE
                     );
                     
-                    // If no platform can reach it, adjust position
                     if (!topPlatforms.some(p => Math.abs(p.x - x) < maxHorizontalJump)) {
-                        // Choose a random top platform to place near
                         if (topPlatforms.length > 0 && !topPlatforms.some(p => Math.abs(p.x - x) < maxHorizontalJump)) {
                             const referencePlatform = topPlatforms[Math.floor(Math.random() * topPlatforms.length)];
                             x = referencePlatform.x + (Math.random() * 80 - 40);
-                            x = Math.max(0, Math.min(gameWidth - 80, x)); // Keep within boundaries
+                            x = Math.max(0, Math.min(gameWidth - 80, x));
                         } else {
-                            // Fallback to place near highest
                             x = Math.max(0, Math.min(gameWidth - 80, highestPlatform.x + (Math.random() * 100 - 50)));
                         }
                     }
                 }
             } else {
-                // If no platforms exist yet, place in middle
                 x = gameWidth/2 - 40;
             }
             
-            // Choose platform type based on score and randomness
             let type = PLATFORM_TYPES.NORMAL;
             let platformChance = Math.random();
             
-            // Get the 3 most recent platforms created (likely at the top of the screen)
             const recentPlatforms = [...platforms].sort((a, b) => a.y - b.y).slice(0, 3);
             const recentBreakable = recentPlatforms.filter(p => p.type === PLATFORM_TYPES.BREAKABLE).length;
             
-            // If too many recent breakable platforms, force this one to be normal
             if (recentBreakable >= 2) {
                 type = PLATFORM_TYPES.NORMAL;
             } else {
-                // Standard platform type selection
                 if (score > 300) {
                     if (platformChance < 0.25 && recentBreakable < 2) {
                         type = PLATFORM_TYPES.BREAKABLE;
@@ -487,12 +447,10 @@
                 }
             }
             
-            // For early game (first 10 platforms), keep them all normal for easier start
             if (score < 30) {
                 type = PLATFORM_TYPES.NORMAL;
             }
             
-            // For moving platforms, set speed and direction
             let speed = 0;
             let direction = 1;
             
@@ -504,16 +462,14 @@
                 direction = Math.random() < 0.5 ? 1 : -1;
             }
             
-            // Before finalizing, double-check reachability one more time
             const topPlatforms = platforms.filter(p => 
                 p.y < y + maxJumpHeight && p.y > y
             );
             
-            // If truly unreachable, adjust position to be near a random top platform
             if (topPlatforms.length > 0 && !topPlatforms.some(p => Math.abs(p.x - x) < maxHorizontalJump)) {
                 const referencePlatform = topPlatforms[Math.floor(Math.random() * topPlatforms.length)];
                 x = referencePlatform.x + (Math.random() * 80 - 40);
-                x = Math.max(0, Math.min(gameWidth - 80, x)); // Keep within boundaries
+                x = Math.max(0, Math.min(gameWidth - 80, x));
             }
             
             let newPlatform = {
@@ -531,72 +487,53 @@
         }
 
         function isIsolatedPosition(x) {
-            // Maximum horizontal jump distance
             const maxJumpDistance = 150;
             
-            // Check against platforms in upper area of screen
-            // FIXED: Filter out breakable platforms
             const topPlatforms = platforms.filter(p => 
                 p.y < 150 && 
-                p.type !== PLATFORM_TYPES.BREAKABLE // Exclude breakable platforms
+                p.type !== PLATFORM_TYPES.BREAKABLE
             );
             
-            // If there are no top platforms, this isn't isolated (it's the first one)
             if (topPlatforms.length === 0) return false;
             
-            // Check if any platform is within jumping range
             for (const platform of topPlatforms) {
-                // Calculate horizontal distance between platforms
                 const horizontalDistance = Math.abs(platform.x - x);
                 
-                // If within jump range, not isolated
                 if (horizontalDistance < maxJumpDistance) {
                     return false;
                 }
             }
             
-            // If we get here, the position is isolated
             return true;
         }
         
-        // Game logic
         function update() {
             if (gameOver) return;
             
-            // Update clouds
             updateClouds();
             
-            // Update moving platforms
             updatePlatforms();
             
-            // Apply gravity to player
             velocityY += gravity;
             playerY += velocityY;
             
-            // Check if player is falling
             if (velocityY < 0) {
-                // Moving upward
                 jumping = true;
                 player.style.transform = 'scaleY(0.9)';
             } else {
-                // Falling down
                 jumping = false;
                 player.style.transform = 'scaleY(1)';
                 
-                // Check for collisions with platforms
                 for (let i = 0; i < platforms.length; i++) {
                     const platform = platforms[i];
                     
-                    // Check if player is on a platform
                     if (playerY + 55 >= platform.y && 
                         playerY + 55 <= platform.y + 15 && 
                         playerX + 45 >= platform.x && 
                         playerX + 15 <= platform.x + 80 && 
                         velocityY > 0) {
                         
-                        // Handle different platform types
                         if (platform.type === PLATFORM_TYPES.BREAKABLE) {
-                            // Breakable platform - break and remove
                             platform.element.classList.add('platform-break');
                             
                             setTimeout(() => {
@@ -611,17 +548,13 @@
                                 }
                             }, 300);
                             
-                            // Don't bounce on breakable platforms
                             continue;
                         } else {
-                            // Bounce on other platform types
                             velocityY = -12;
                             jumping = true;
                             
-                            // Add bounce animation
                             platform.element.classList.add('bounce');
                             
-                            // Remove normal (green) platforms after jumping on them
                             if (platform.type === PLATFORM_TYPES.NORMAL) {
                                 platform.element.classList.add('platform-break');
                                 
@@ -637,7 +570,6 @@
                                     }
                                 }, 300);
                             } else {
-                                // For other non-breakable platforms, just remove the bounce animation
                                 setTimeout(() => {
                                     if (platform.element && platform.element.classList) {
                                         platform.element.classList.remove('bounce');
@@ -650,22 +582,18 @@
                 }
             }
             
-            // Allow player to wrap around screen horizontally
             if (playerX < -60) {
                 playerX = gameWidth;
             } else if (playerX > gameWidth) {
                 playerX = -60;
             }
             
-            // Game over if player falls off the bottom
             if (playerY > gameHeight) {
                 endGame();
                 return;
             }
             
-            // Move camera/view - when player gets high enough
             if (playerY < 300) {
-                // Move platforms down
                 let offset = 300 - playerY;
                 playerY = 300;
                 
@@ -673,39 +601,31 @@
                     platforms[i].y += offset;
                     platforms[i].element.style.top = platforms[i].y + 'px';
                     
-                    // For vertical platforms, also update the start position
                     if (platforms[i].type === PLATFORM_TYPES.VERTICAL) {
                         platforms[i].startY += offset;
                     }
                     
-                    // Remove platforms that are off the bottom of the screen
                     if (platforms[i].y > gameHeight) {
-                        // First remove the element from the DOM
                         if (platforms[i].element && platforms[i].element.parentNode) {
                             game.removeChild(platforms[i].element);
                         }
                         
-                        // Then remove from the array
                         platforms.splice(i, 1);
-                        i--; // Adjust the index after splicing
+                        i--;
                         
-                        // Add a new platform at the top
                         createNewPlatform();
                         
-                        // Increase score
                         score += 10;
                         scoreDisplay.textContent = score;
                     }
                 }
                 
-                // Move clouds too
                 for (let i = 0; i < clouds.length; i++) {
-                    clouds[i].y += offset * 0.5; // Clouds move at half speed for parallax effect
+                    clouds[i].y += offset * 0.5;
                     clouds[i].element.style.top = clouds[i].y + 'px';
                 }
             }
             
-            // Update player position
             player.style.top = playerY + 'px';
             player.style.left = playerX + 'px';
             
@@ -718,9 +638,7 @@
             gameOverScreen.style.display = 'flex';
         }
         
-        // Restart game
         restartBtn.addEventListener('click', () => {
-            // Clear all platforms and clouds
             platforms.forEach(platform => {
                 if (platform.element && platform.element.parentNode) {
                     game.removeChild(platform.element);
@@ -733,28 +651,23 @@
                 }
             });
             
-            // Reset arrays
             platforms = [];
             clouds = [];
             
-            // Reset variables
             playerX = 175;
             playerY = 300;
             velocityY = 0;
             score = 0;
             gameOver = false;
             
-            // Reset UI
             player.style.top = playerY + 'px';
             player.style.left = playerX + 'px';
             scoreDisplay.textContent = '0';
             gameOverScreen.style.display = 'none';
             
-            // Start game again
             startGame();
         });
         
-        // Start the game
         function startGame() {
             createClouds();
             createPlatforms();
