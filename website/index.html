@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Noodle Hop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
         
@@ -14,6 +15,7 @@
             align-items: center;
             height: 100vh;
             font-family: 'Fredoka One', cursive;
+            touch-action: none;
         }
         
         #game-container {
@@ -23,6 +25,8 @@
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden;
+            max-width: 100%;
+            max-height: 90vh;
         }
         
         #game {
@@ -33,6 +37,8 @@
             overflow: hidden;
             margin: 10px;
             border-radius: 10px;
+            max-width: calc(100% - 20px);
+            max-height: calc(100% - 20px);
         }
         
         #player {
@@ -161,6 +167,112 @@
         #restart-btn:hover {
             transform: scale(1.1);
         }
+        
+        /* Mobile controls */
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-sizing: border-box;
+            pointer-events: none;
+            z-index: 20;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .control-arrow {
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+        
+        #left-btn .control-arrow {
+            border-width: 10px 20px 10px 0;
+            border-color: transparent #333 transparent transparent;
+            margin-right: 5px;
+        }
+        
+        #right-btn .control-arrow {
+            border-width: 10px 0 10px 20px;
+            border-color: transparent transparent transparent #333;
+            margin-left: 5px;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 50;
+            width: 80%;
+            max-width: 300px;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #start-game-btn {
+            background: #3DB2FF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-family: 'Fredoka One', cursive;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        #start-game-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        @media (max-width: 480px) {
+            #game-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            #game {
+                width: calc(100% - 20px);
+                height: calc(100% - 20px);
+            }
+            
+            .control-btn {
+                width: 70px;
+                height: 70px;
+            }
+        }
+        
+        /* Hide mobile controls on desktop */
+        @media (min-width: 768px) {
+            #mobile-controls {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -169,11 +281,26 @@
             <div id="player"></div>
             <div id="score">0</div>
             <div id="title">Noodle Hop</div>
+            
+            <div id="mobile-controls">
+                <div id="left-btn" class="control-btn">
+                    <div class="control-arrow"></div>
+                </div>
+                <div id="right-btn" class="control-btn">
+                    <div class="control-arrow"></div>
+                </div>
+            </div>
         </div>
         <div id="game-over">
             <h2>Game Over!</h2>
             <div id="final-score">Score: 0</div>
             <button id="restart-btn">Play Again</button>
+        </div>
+        <div id="instructions">
+            <h3>How to play:</h3>
+            <p>Desktop: Move your mouse to control the character</p>
+            <p>Mobile: Tap the left/right buttons or tilt your device</p>
+            <button id="start-game-btn">Start Game</button>
         </div>
     </div>
 
@@ -184,6 +311,10 @@
         const gameOverScreen = document.getElementById('game-over');
         const finalScoreDisplay = document.getElementById('final-score');
         const restartBtn = document.getElementById('restart-btn');
+        const instructionsScreen = document.getElementById('instructions');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const leftBtn = document.getElementById('left-btn');
+        const rightBtn = document.getElementById('right-btn');
         
         let platforms = [];
         let clouds = [];
@@ -197,6 +328,18 @@
         let gameHeight = 600;
         let jumping = false;
         let gameOver = false;
+        let leftPressed = false;
+        let rightPressed = false;
+        let movementSpeed = 5;
+        let usingMobileControls = false;
+        let gameLoop = null;
+        
+        // Get actual game dimensions
+        function updateGameDimensions() {
+            const rect = game.getBoundingClientRect();
+            gameWidth = rect.width;
+            gameHeight = rect.height;
+        }
         
         const PLATFORM_TYPES = {
             NORMAL: 'normal',
@@ -204,6 +347,79 @@
             HORIZONTAL: 'horizontal',
             VERTICAL: 'vertical'
         };
+        
+        // Detect mobile device
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+        }
+        
+        // Setup mobile controls
+        function setupMobileControls() {
+            leftBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                leftPressed = true;
+                usingMobileControls = true;
+            });
+            
+            leftBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                leftPressed = false;
+            });
+            
+            rightBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                rightPressed = true;
+                usingMobileControls = true;
+            });
+            
+            rightBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                rightPressed = false;
+            });
+            
+            // Add device orientation controls
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+            }
+            
+            // Handle touch movement
+            game.addEventListener('touchmove', function(e) {
+                if (!gameOver && gameStarted) {
+                    const touch = e.touches[0];
+                    const rect = game.getBoundingClientRect();
+                    const touchX = touch.clientX - rect.left;
+                    
+                    playerX = Math.max(0, Math.min(gameWidth - 60, touchX - 30));
+                    player.style.left = playerX + 'px';
+                    usingMobileControls = true;
+                }
+            });
+        }
+        
+        // Handle device tilt
+        function handleDeviceOrientation(event) {
+            if (!gameOver && gameStarted) {
+                // Only use tilt controls if not using touch controls
+                if (!leftPressed && !rightPressed) {
+                    const tiltThreshold = 10;
+                    
+                    // Different handling for iOS vs Android
+                    let tilt = event.gamma; // Left-right tilt in degrees
+                    
+                    if (tilt > tiltThreshold) {
+                        // Tilting right
+                        playerX += (tilt - tiltThreshold) * 0.5;
+                    } else if (tilt < -tiltThreshold) {
+                        // Tilting left
+                        playerX += (tilt + tiltThreshold) * 0.5;
+                    }
+                    
+                    // Keep player within bounds
+                    playerX = Math.max(0, Math.min(gameWidth - 60, playerX));
+                    player.style.left = playerX + 'px';
+                }
+            }
+        }
         
         function createClouds() {
             for (let i = 0; i < 5; i++) {
@@ -315,16 +531,6 @@
             game.appendChild(platform);
             return platform;
         }
-        
-        game.addEventListener('mousemove', (e) => {
-            if (!gameOver) {
-                const rect = game.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                
-                playerX = Math.max(0, Math.min(gameWidth - 60, mouseX - 30));
-                player.style.left = playerX + 'px';
-            }
-        });
         
         function updateClouds() {
             for (let i = 0; i < clouds.length; i++) {
@@ -485,7 +691,7 @@
             platforms.push(newPlatform);
             return newPlatform;
         }
-
+        
         function isIsolatedPosition(x) {
             const maxJumpDistance = 150;
             
@@ -507,12 +713,34 @@
             return true;
         }
         
+        function handleMobileMovement() {
+            if (leftPressed) {
+                playerX -= movementSpeed;
+            }
+            if (rightPressed) {
+                playerX += movementSpeed;
+            }
+            
+            // Wrap around screen edges
+            if (playerX < -60) {
+                playerX = gameWidth;
+            } else if (playerX > gameWidth) {
+                playerX = -60;
+            }
+            
+            player.style.left = playerX + 'px';
+        }
+        
         function update() {
             if (gameOver) return;
             
             updateClouds();
-            
             updatePlatforms();
+            
+            // Handle mobile button controls
+            if (usingMobileControls) {
+                handleMobileMovement();
+            }
             
             velocityY += gravity;
             playerY += velocityY;
@@ -636,7 +864,44 @@
             gameOver = true;
             finalScoreDisplay.textContent = `Score: ${score}`;
             gameOverScreen.style.display = 'flex';
+            
+            // Stop the device orientation event listener on game over
+            if (window.DeviceOrientationEvent) {
+                window.removeEventListener('deviceorientation', handleDeviceOrientation);
+            }
         }
+        
+        // Mouse controls for desktop
+        game.addEventListener('mousemove', (e) => {
+            if (!gameOver && gameStarted && !usingMobileControls) {
+                const rect = game.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                
+                playerX = Math.max(0, Math.min(gameWidth - 60, mouseX - 30));
+                player.style.left = playerX + 'px';
+            }
+        });
+        
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => {
+            if (!gameOver && gameStarted) {
+                if (e.key === 'ArrowLeft' || e.key === 'a') {
+                    leftPressed = true;
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd') {
+                    rightPressed = true;
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') {
+                leftPressed = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd') {
+                rightPressed = false;
+            }
+        });
         
         restartBtn.addEventListener('click', () => {
             platforms.forEach(platform => {
@@ -659,23 +924,109 @@
             velocityY = 0;
             score = 0;
             gameOver = false;
+            leftPressed = false;
+            rightPressed = false;
             
             player.style.top = playerY + 'px';
             player.style.left = playerX + 'px';
             scoreDisplay.textContent = '0';
             gameOverScreen.style.display = 'none';
             
+            // Re-enable device orientation if needed
+            if (window.DeviceOrientationEvent && isMobileDevice()) {
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+            }
+            
             startGame();
         });
         
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            updateGameDimensions();
+        });
+        
+        // Start game button click handler
+        startGameBtn.addEventListener('click', () => {
+            instructionsScreen.style.display = 'none';
+            if (!gameStarted) {
+                startGame();
+            }
+        });
+        
         function startGame() {
+            updateGameDimensions();
+            
+            if (isMobileDevice()) {
+                setupMobileControls();
+            }
+            
             createClouds();
             createPlatforms();
             gameStarted = true;
-            update();
+            
+            // Reset position
+            playerX = gameWidth / 2 - 30;
+            playerY = 300;
+            player.style.top = playerY + 'px';
+            player.style.left = playerX + 'px';
+            
+            // Start the game loop
+            if (gameLoop === null) {
+                update();
+            }
         }
         
-        startGame();
+        // Don't automatically start, wait for the start button
+        updateGameDimensions();
+
+         // Check if we need to request permission for DeviceOrientation on iOS 13+
+         function requestDeviceOrientationPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                
+                // iOS 13+ requires permission request
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleDeviceOrientation);
+                        }
+                    })
+                    .catch(console.error);
+            }
+        }
+        
+        // On iOS, we need to request permission when user interacts
+        startGameBtn.addEventListener('click', requestDeviceOrientationPermission);
+        restartBtn.addEventListener('click', requestDeviceOrientationPermission);
+        
+        // Add event listener for fullscreen on mobile
+        if (isMobileDevice()) {
+            document.addEventListener('touchstart', () => {
+                // Request fullscreen on first touch for better experience
+                if (!document.fullscreenElement && game.requestFullscreen) {
+                    game.requestFullscreen().catch(err => {
+                        // Ignore errors - not all browsers support this
+                    });
+                }
+            }, { once: true });
+        }
+        
+        // Prevent default touchmove behavior to avoid scrolling
+        document.addEventListener('touchmove', function(e) {
+            if (gameStarted) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Add audio context initialization on user interaction
+        function initAudio() {
+            // This would be the place to initialize audio if you add sound effects later
+            document.removeEventListener('click', initAudio);
+            document.removeEventListener('touchstart', initAudio);
+        }
+        
+        document.addEventListener('click', initAudio);
+        document.addEventListener('touchstart', initAudio);
     </script>
 </body>
 </html>
