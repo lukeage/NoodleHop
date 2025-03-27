@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Doodle Jump Clone</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Fredoka One', cursive;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 420px;
+            height: 620px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        #game {
+            width: 400px;
+            height: 600px;
+            background: linear-gradient(180deg, #c9f5ff 0%, #a1e8ff 100%);
+            position: relative;
+            overflow: hidden;
+            margin: 10px;
+            border-radius: 10px;
+        }
+        
+        #player {
+            width: 60px;
+            height: 60px;
+            position: absolute;
+            bottom: 100px;
+            left: 175px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="%233DB2FF"/><circle cx="35" cy="40" r="10" fill="white"/><circle cx="65" cy="40" r="10" fill="white"/><circle cx="35" cy="40" r="5" fill="black"/><circle cx="65" cy="40" r="5" fill="black"/><path d="M30 65 Q50 80 70 65" stroke="black" stroke-width="5" fill="none"/></svg>');
+            background-size: contain;
+            z-index: 10;
+            transition: transform 0.1s;
+        }
+        
+        .platform {
+            width: 80px;
+            height: 15px;
+            background: linear-gradient(180deg, #9EE37D 0%, #63C132 100%);
+            position: absolute;
+            border-radius: 10px;
+            box-shadow: 0 3px 0 #48841F;
+        }
+        
+        .cloud {
+            position: absolute;
+            opacity: 0.7;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><path d="M10 40 Q15 20 40 30 Q50 5 70 20 Q85 10 90 30 Q100 35 90 40 L10 40 Z" fill="white"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+        
+        #score {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            color: #333;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.5);
+        }
+        
+        #title {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 22px;
+            color: #333;
+            text-shadow: 2px 2px 0px rgba(255,255,255,0.5);
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .bounce {
+            animation: bounce 0.3s;
+        }
+        
+        #game-over {
+            position: absolute;
+            width: 300px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        #game-over h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        #restart-btn {
+            background: #FF6B6B;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-family: 'Fredoka One', cursive;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        #restart-btn:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game">
+            <div id="player"></div>
+            <div id="score">0</div>
+            <div id="title">Doodle Jump</div>
+        </div>
+        <div id="game-over">
+            <h2>Game Over!</h2>
+            <div id="final-score">Score: 0</div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const game = document.getElementById('game');
+        const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        let platforms = [];
+        let clouds = [];
+        let gameStarted = false;
+        let playerX = 175;
+        let playerY = 300;
+        let velocityY = 0;
+        let gravity = 0.4;
+        let score = 0;
+        let gameWidth = 400;
+        let gameHeight = 600;
+        let jumping = false;
+        let gameOver = false;
+        
+        // Create clouds for background
+        function createClouds() {
+            for (let i = 0; i < 5; i++) {
+                createCloud();
+            }
+        }
+        
+        function createCloud() {
+            const cloud = document.createElement('div');
+            cloud.className = 'cloud';
+            
+            const size = 50 + Math.random() * 50;
+            const x = Math.random() * gameWidth;
+            const y = Math.random() * gameHeight;
+            
+            cloud.style.width = size + 'px';
+            cloud.style.height = size/2 + 'px';
+            cloud.style.left = x + 'px';
+            cloud.style.top = y + 'px';
+            cloud.style.animation = `floating ${3 + Math.random() * 4}s infinite ease-in-out`;
+            
+            game.appendChild(cloud);
+            
+            clouds.push({
+                element: cloud,
+                x: x,
+                y: y,
+                speed: 0.2 + Math.random() * 0.3
+            });
+        }
+        
+        // Create initial platforms
+        function createPlatforms() {
+            // Start with a platform under the player
+            platforms.push({
+                x: 150,
+                y: 400,
+                element: createPlatformElement(150, 400)
+            });
+            
+            // Create more platforms
+            for (let i = 0; i < 10; i++) {
+                let x = Math.random() * (gameWidth - 80);
+                let y = i * 60;
+                
+                platforms.push({
+                    x: x,
+                    y: y,
+                    element: createPlatformElement(x, y)
+                });
+            }
+        }
+        
+        function createPlatformElement(x, y) {
+            const platform = document.createElement('div');
+            platform.className = 'platform';
+            platform.style.left = x + 'px';
+            platform.style.top = y + 'px';
+            game.appendChild(platform);
+            return platform;
+        }
+        
+        // Handle mouse movement
+        game.addEventListener('mousemove', (e) => {
+            if (!gameOver) {
+                // Calculate mouse position relative to game container
+                const rect = game.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                
+                // Set player position, keeping within boundaries
+                playerX = Math.max(0, Math.min(gameWidth - 60, mouseX - 30));
+                player.style.left = playerX + 'px';
+            }
+        });
+        
+        // Move clouds
+        function updateClouds() {
+            for (let i = 0; i < clouds.length; i++) {
+                clouds[i].y += clouds[i].speed;
+                
+                if (clouds[i].y > gameHeight) {
+                    clouds[i].y = -50;
+                    clouds[i].x = Math.random() * gameWidth;
+                }
+                
+                clouds[i].element.style.top = clouds[i].y + 'px';
+            }
+        }
+        
+        // Game logic
+        function update() {
+            if (gameOver) return;
+            
+            // Update clouds
+            updateClouds();
+            
+            // Apply gravity to player
+            velocityY += gravity;
+            playerY += velocityY;
+            
+            // Check if player is falling
+            if (velocityY < 0) {
+                // Moving upward
+                jumping = true;
+                player.style.transform = 'scaleY(0.9)';
+            } else {
+                // Falling down
+                jumping = false;
+                player.style.transform = 'scaleY(1)';
+                
+                // Check for collisions with platforms
+                for (let i = 0; i < platforms.length; i++) {
+                    const platform = platforms[i];
+                    
+                    // Check if player is on a platform
+                    if (playerY + 55 >= platform.y && 
+                        playerY + 55 <= platform.y + 15 && 
+                        playerX + 45 >= platform.x && 
+                        playerX + 15 <= platform.x + 80 && 
+                        velocityY > 0) {
+                        // Bounce
+                        velocityY = -12;
+                        jumping = true;
+                        
+                        // Add bounce animation
+                        platform.element.classList.add('bounce');
+                        
+                        // Remove the animation class and the platform after animation completes
+                        setTimeout(() => {
+                            if (platform.element && platform.element.classList) {
+                                platform.element.classList.remove('bounce');
+                                
+                                // Remove the platform element from the DOM
+                                if (platform.element.parentNode) {
+                                    game.removeChild(platform.element);
+                                }
+                                
+                                // Remove the platform from the array
+                                const index = platforms.indexOf(platform);
+                                if (index > -1) {
+                                    platforms.splice(index, 1);
+                                    
+                                    // Add a new platform at the top to maintain platform count
+                                    let x = Math.random() * (gameWidth - 80);
+                                    let y = -20; // Just above the visible area
+                                    
+                                    platforms.push({
+                                        x: x,
+                                        y: y,
+                                        element: createPlatformElement(x, y)
+                                    });
+                                }
+                            }
+                        }, 300);
+                        break;
+                    }
+                }
+            }
+            
+            // Allow player to wrap around screen horizontally
+            if (playerX < -60) {
+                playerX = gameWidth;
+            } else if (playerX > gameWidth) {
+                playerX = -60;
+            }
+            
+            // Game over if player falls off the bottom
+            if (playerY > gameHeight) {
+                endGame();
+                return;
+            }
+            
+            // Move camera/view - when player gets high enough
+            if (playerY < 300) {
+                // Move platforms down
+                let offset = 300 - playerY;
+                playerY = 300;
+                
+                for (let i = 0; i < platforms.length; i++) {
+                    platforms[i].y += offset;
+                    platforms[i].element.style.top = platforms[i].y + 'px';
+                    
+                    // Remove platforms that are off the bottom of the screen
+                    if (platforms[i].y > gameHeight) {
+                        // First remove the element from the DOM
+                        if (platforms[i].element && platforms[i].element.parentNode) {
+                            game.removeChild(platforms[i].element);
+                        }
+                        
+                        // Then remove from the array
+                        platforms.splice(i, 1);
+                        i--; // Adjust the index after splicing
+                        
+                        // Add a new platform at the top
+                        let x = Math.random() * (gameWidth - 80);
+                        let y = -20;
+                        
+                        platforms.push({
+                            x: x,
+                            y: y,
+                            element: createPlatformElement(x, y)
+                        });
+                        
+                        // Increase score
+                        score += 10;
+                        scoreDisplay.textContent = score;
+                    }
+                }
+                
+                
+                // Move clouds too
+                for (let i = 0; i < clouds.length; i++) {
+                    clouds[i].y += offset * 0.5; // Clouds move at half speed for parallax effect
+                    clouds[i].element.style.top = clouds[i].y + 'px';
+                }
+            }
+            
+            // Update player position
+            player.style.top = playerY + 'px';
+            player.style.left = playerX + 'px';
+            
+            requestAnimationFrame(update);
+        }
+        
+        function endGame() {
+            gameOver = true;
+            finalScoreDisplay.textContent = `Score: ${score}`;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Restart game
+        restartBtn.addEventListener('click', () => {
+            // Clear all platforms and clouds
+            platforms.forEach(platform => {
+                if (platform.element && platform.element.parentNode) {
+                    game.removeChild(platform.element);
+                }
+            });
+            
+            clouds.forEach(cloud => {
+                if (cloud.element && cloud.element.parentNode) {
+                    game.removeChild(cloud.element);
+                }
+            });
+            
+            // Reset arrays
+            platforms = [];
+            clouds = [];
+            
+            // Reset variables
+            playerX = 175;
+            playerY = 300;
+            velocityY = 0;
+            score = 0;
+            gameOver = false;
+            
+            // Reset UI
+            player.style.top = playerY + 'px';
+            player.style.left = playerX + 'px';
+            scoreDisplay.textContent = '0';
+            gameOverScreen.style.display = 'none';
+            
+            // Start game again
+            startGame();
+        });
+        
+        // Start the game
+        function startGame() {
+            createClouds();
+            createPlatforms();
+            gameStarted = true;
+            update();
+        }
+        
+        startGame();
+    </script>
+</body>
+</html>
