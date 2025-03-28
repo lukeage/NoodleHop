@@ -257,6 +257,21 @@
                 display: none;
             }
         }
+
+        .platform-breakable {
+            background: linear-gradient(180deg, #FF9E9E 0%, #FF5252 100%);
+            box-shadow: 0 3px 0 #C50E0E;
+        }
+        
+        @keyframes break-platform {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        
+        .breaking {
+            animation: break-platform 0.3s forwards;
+        }
     </style>
 </head>
 <body>
@@ -327,7 +342,8 @@
         const PLATFORM_TYPES = {
             NORMAL: 'normal',
             HORIZONTAL: 'horizontal',
-            VERTICAL: 'vertical'
+            VERTICAL: 'vertical',
+            BREAKABLE: 'breakable'
         };
 
         function isMobileDevice() {
@@ -486,7 +502,7 @@
         function createPlatformElement(x, y, type) {
             const platform = document.createElement('div');
             platform.className = 'platform';
-
+        
             switch (type) {
                 case PLATFORM_TYPES.NORMAL:
                     platform.classList.add('platform-normal');
@@ -497,8 +513,11 @@
                 case PLATFORM_TYPES.VERTICAL:
                     platform.classList.add('platform-vertical');
                     break;
+                case PLATFORM_TYPES.BREAKABLE:
+                    platform.classList.add('platform-breakable');
+                    break;
             }
-
+        
             platform.style.left = x + 'px';
             platform.style.top = y + 'px';
             game.appendChild(platform);
@@ -611,6 +630,17 @@
 
             let finalType = potentialType;
 
+            if (score > scoreThreshold1 && Math.random() < 0.25) {
+
+                const nearbyPlatforms = platforms.filter(p => 
+                    p.y < y + 150 && p.y > y - 150 && p !== highestPlatform
+                );
+                
+                if (nearbyPlatforms.length > 0 && !isIsolatedPosition(x) && isViablePath(platforms)) {
+                    finalType = PLATFORM_TYPES.BREAKABLE;
+                }
+            }
+
             let speed = 0;
             let direction = 1;
             if (finalType === PLATFORM_TYPES.HORIZONTAL) {
@@ -637,9 +667,72 @@
                 speed: speed,
                 startY: y
             };
-
+            
+            // Test if adding this platform would maintain a viable path
+            const testPlatforms = [...platforms, newPlatform];
+            if (finalType === PLATFORM_TYPES.BREAKABLE && !isViablePath(testPlatforms)) {
+                // If the path would be broken, make this a normal platform instead
+                game.removeChild(newPlatform.element);
+                newPlatform.type = PLATFORM_TYPES.NORMAL;
+                newPlatform.element = createPlatformElement(x, y, PLATFORM_TYPES.NORMAL);
+            }
+            
             platforms.push(newPlatform);
             return newPlatform;
+        }
+
+        function isViablePath(platforms) {
+            // Start from the lowest platform
+            const sortedPlatforms = [...platforms].sort((a, b) => b.y - a.y);
+            
+            if (sortedPlatforms.length < 2) return true;
+            
+            const visited = new Set();
+            const queue = [sortedPlatforms[0]];
+            
+            const maxJumpHeight = 130;  // Maximum vertical jump height
+            const maxJumpReach = 170;   // Maximum horizontal reach during jump
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                const platformId = `${current.x}-${current.y}`;
+                
+                if (visited.has(platformId)) continue;
+                visited.add(platformId);
+                
+                // Find platforms that can be reached from here
+                for (const platform of sortedPlatforms) {
+                    // Skip already visited platforms
+                    const pId = `${platform.x}-${platform.y}`;
+                    if (visited.has(pId)) continue;
+                    
+                    // Skip breakable platforms for path verification
+                    if (platform.type === PLATFORM_TYPES.BREAKABLE) continue;
+                    
+                    // Vertical distance check
+                    const verticalDist = current.y - platform.y;
+                    
+                    // Platform must be above current and within jump height
+                    if (verticalDist <= 0 || verticalDist > maxJumpHeight) continue;
+                    
+                    // Horizontal distance check
+                    const horizontalDist = Math.abs((current.x + 40) - (platform.x + 40));
+                    
+                    // Must be within horizontal jump reach
+                    if (horizontalDist > maxJumpReach) continue;
+                    
+                    // This platform is reachable
+                    queue.push(platform);
+                }
+            }
+            
+            // Check if we've visited at least one platform in the top third of the game
+            const topPlatforms = sortedPlatforms.filter(p => 
+                p.y < sortedPlatforms[0].y / 3 && 
+                p.type !== PLATFORM_TYPES.BREAKABLE
+            );
+            
+            return topPlatforms.some(p => visited.has(`${p.x}-${p.y}`));
         }
 
         function isIsolatedPosition(x) {
@@ -710,25 +803,41 @@
 
                 for (let i = 0; i < platforms.length; i++) {
                     const platform = platforms[i];
-
+                
                     if (playerY + 55 >= platform.y &&
                         playerY + 50 <= platform.y + 15 &&
                         playerX + 45 >= platform.x &&
                         playerX + 15 <= platform.x + 80 &&
                         velocityY > 0) {
-
+                
+                        const hitPlatform = platform;
+                
+                        if (hitPlatform.type === PLATFORM_TYPES.BREAKABLE) {
+                            // Breakable platform: break but don't jump
+                            hitPlatform.element.classList.add('breaking');
+                            setTimeout(() => {
+                                if (hitPlatform.element && hitPlatform.element.parentNode === game) {
+                                    game.removeChild(hitPlatform.element);
+                                }
+                                const index = platforms.indexOf(hitPlatform);
+                                if (index > -1) {
+                                    platforms.splice(index, 1);
+                                }
+                            }, 300);
+                            continue; // Skip the jump, just continue falling
+                        }
+                
+                        // For all other platform types
                         velocityY = -12;
                         jumping = true;
-
-                        const hitPlatform = platform;
-
+                
                         hitPlatform.element.classList.add('bounce');
                         setTimeout(() => {
                             if (hitPlatform.element && hitPlatform.element.classList) {
                                 hitPlatform.element.classList.remove('bounce');
                             }
                         }, 300);
-
+                
                         if (hitPlatform.type === PLATFORM_TYPES.NORMAL) {
                             setTimeout(() => {
                                 if (hitPlatform.element && hitPlatform.element.parentNode === game) {
@@ -741,7 +850,6 @@
                                 createNewPlatform(); 
                             }, 150);
                         }
-
                         break;
                     }
                 }
@@ -778,9 +886,37 @@
                         }
                         platforms.splice(i, 1);
                         i--;
-
-                        createNewPlatform();
-
+                    
+                        const newPlatform = createNewPlatform();
+                        
+                        // Ensure the new platform forms a viable path
+                        if (!isViablePath(platforms)) {
+                            // If not viable, create a safer platform
+                            if (newPlatform.type === PLATFORM_TYPES.BREAKABLE) {
+                                game.removeChild(newPlatform.element);
+                                const index = platforms.indexOf(newPlatform);
+                                if (index > -1) {
+                                    platforms.splice(index, 1);
+                                }
+                                
+                                // Create a normal platform in a more accessible position
+                                const saferX = platforms.length > 0 ? 
+                                    platforms[platforms.length-1].x + (Math.random() * 120 - 60) : 
+                                    gameWidth/2 - 40;
+                                
+                                const saferPlatform = {
+                                    x: Math.max(10, Math.min(gameWidth - 90, saferX)),
+                                    y: newPlatform.y,
+                                    type: PLATFORM_TYPES.NORMAL,
+                                    element: createPlatformElement(saferX, newPlatform.y, PLATFORM_TYPES.NORMAL),
+                                    direction: 1,
+                                    speed: 0,
+                                    startY: newPlatform.y
+                                };
+                                platforms.push(saferPlatform);
+                            }
+                        }
+                    
                         score += 10;
                         scoreDisplay.textContent = score;
                     }
